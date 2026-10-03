@@ -1,9 +1,24 @@
+# Dependências
 node_modules/
+
+# Builds / cache
 dist/
-*.log
+.angular/
+*.tsbuildinfo
+
+# Ambiente / segredos (mantém só o exemplo)
 .env
-.env.local
-/backups/
-*.dump
-*.sql.enc
-*.zip
+*.local.env
+
+# Saídas geradas em execução (não versionar)
+backend/backups/*.sql
+backend/backups/*.zip
+backend/backups/*.enc
+backend/backups/**/*.sql
+backend/backups/**/*.zip
+backend/backups/**/*.enc
+backend/logs/**/*.txt
+
+# Sistema / editor
+.DS_Store
+Thumbs.db

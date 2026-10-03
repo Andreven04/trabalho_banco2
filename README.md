@@ -1,98 +1,98 @@
-# Plataforma de Gerenciamento de Backup
+# Plataforma de Gerenciamento de Backup & Manutenção
 
-Trabalho prático de **Banco de Dados II** — plataforma para configurar, executar e
-acompanhar a manutenção e o backup de um banco PostgreSQL.
+Trabalho de **Banco de Dados II** — plataforma web para configurar, executar e
+acompanhar a **manutenção (VACUUM)** e o **backup** de um PostgreSQL pela
+interface. Backend em **Fastify + TypeScript**, frontend em **Angular**, banco
+no **PostgreSQL** (Supabase ou local).
 
-**Equipe:** André Júnior, Davi Zappelini, Gabriel de Bona, José Henrique Pereira
-**Repositório:** https://github.com/Andreven04/trabalho_banco2
+- Equipe: André, Davi Zappelini, Gabriel de Bona, José Henrique Pereira
+- Repositório: https://github.com/Andreven04/trabalho_banco2
 
-## Stack
+## Estrutura
 
-- **Banco:** PostgreSQL hospedado no Supabase (dois schemas: `loja` e `plataforma`)
-- **Backend:** Node.js + Fastify (TypeScript), driver `pg`
-- **Frontend:** Angular *(em desenvolvimento)*
+```
+trabalho_banco2/
+├─ backend/        API Fastify (TypeScript) — engine de manutenção e backup
+├─ frontend/       App Angular (tela única: config, processo, históricos)
+├─ sql/            Scripts SQL (objetos da plataforma)
+├─ .env.example    Modelo de .env (vai na RAIZ do projeto)
+└─ AULA3_INSTRUCOES.md
+```
 
 ## Pré-requisitos
 
-- Node.js 20+ e npm
-- Git
-- Cliente PostgreSQL (`psql`) — para rodar os scripts e, na Aula 3, o `pg_dump`
+- **Node.js 22.22.3+** (ou 24.15+). ⚠️ O Angular CLI 22 recusa versões abaixo de
+  `22.22.3` — confira com `node -v`. Se der erro de versão de Node ao rodar o
+  frontend, atualize o Node.
+- **PostgreSQL client** (`pg_dump` e `psql`) instalado. No Windows, aponte
+  `PG_BIN` no `.env` para a pasta `bin` (ex.: `C:\Program Files\PostgreSQL\18\bin`).
+- Um banco PostgreSQL alvo (Supabase da Aula 2 ou um Postgres local).
 
 ## 1. Banco de dados
 
-Conecte no Supabase pelo `psql` (string do **Session pooler**, porta 5432, SSL):
+Rode no banco alvo, no schema correto (`plataforma` no Supabase, `public` num
+Postgres local — ajuste o `SET search_path` no topo do arquivo):
 
-```bash
-psql "postgresql://<USER>:<SENHA>@<HOST>.pooler.supabase.com:5432/postgres?sslmode=require"
+```
+sql/plataforma/02_aula3_manutencao.sql
 ```
 
-Crie os schemas e rode os scripts **nesta ordem**:
-
-```sql
-create schema if not exists loja;
-create schema if not exists plataforma;
-
-\i sql/dominio/01_estrutura.sql
-\i sql/plataforma/01_estrutura.sql
-\i sql/dominio/02_carga.sql
-```
-
-> `02_carga.sql` gera a massa de dados (produtos, clientes, pedidos, itens,
-> pagamentos e ~300 mil movimentos de estoque) e leva alguns segundos.
-
-Conferir a carga:
-
-```sql
-SELECT 'produto', COUNT(*) FROM loja.produto
-UNION ALL SELECT 'cliente', COUNT(*) FROM loja.cliente
-UNION ALL SELECT 'pedido', COUNT(*) FROM loja.pedido;
-```
+Ele adiciona `backup_arquivo.checksum_sha256` (integridade) e cria
+`manutencao_estatistica` (dead tuples antes/depois). Os scripts de estrutura e
+carga do domínio (Aula 2) estão no repositório em `sql/dominio` e
+`sql/plataforma/01_estrutura.sql`.
 
 ## 2. Backend
 
 ```bash
+# na RAIZ do projeto
+cp .env.example .env          # Windows: copy .env.example .env
+# ajuste PG_BIN se estiver no Windows
+
 cd backend
 npm install
-npm run dev
+npm run dev                   # tsx watch — recarrega ao salvar
 ```
 
-A configuração vem do arquivo **`.env` na raiz do projeto** (não versionado):
+Deve aparecer: `🚀 Backend Fastify rodando em http://localhost:3000`.
 
-```dotenv
-DATABASE_URL=postgresql://<USER>:<SENHA>@<HOST>.pooler.supabase.com:5432/postgres
-PORT=3000
+Scripts: `npm run dev` (desenvolvimento), `npm start` (executa uma vez),
+`npm run build` (compila para `dist/`), `npm run typecheck` (só checa tipos).
+
+## 3. Frontend
+
+```bash
+cd frontend
+npm install
+npm start                     # ng serve → http://localhost:4200
 ```
 
-> Use `.env.example` como modelo. Nunca comite o `.env` com a senha real.
+Produção: `npm run build` (gera `dist/frontend`).
 
-## 3. Testar a conexão
+## 4. Usar / demonstrar pela interface
 
-Com o backend rodando:
+1. Preencha a **conexão** (host, porta, database, usuário, senha, schema, ssl).
+   - Supabase: `schema = loja,plataforma`, `ssl` marcado, porta `5432`
+     (session pooler), usuário `postgres.<REF>`, database `postgres`.
+   - Postgres local: `schema` vazio (= `public`) e `ssl` desmarcado.
+2. **Testar conexão**.
+3. **Gerar churn** (cria dead tuples) → **Executar manutenção** (VACUUM por
+   faixa de dias ou escolha manual; grava estatísticas antes/depois).
+4. **Iniciar processo completo** (manutenção + backup), marcando as opções:
+   criptografia AES, compactação ZIP com senha, retenção (quantidade a manter),
+   cópia secundária. O frontend acompanha as etapas em tempo real.
+5. **Verificar integridade** (checksum SHA-256) e **restaurar** um backup.
+   > A restauração cria um novo banco (CREATE DATABASE) — funciona em Postgres
+   > local com superusuário; no Supabase gerenciado não é permitido.
 
-```
-GET http://localhost:3000/api/conexao/testar
-```
+## O que foi ajustado para rodar em produção
 
-Resposta esperada:
+- `frontend/angular.json`: os *budgets* padrão do Angular (8 kB por estilo de
+  componente, 1 MB inicial) estouravam no `ng build` por causa do `app.scss`
+  (~18 kB) e do bundle inicial. Limites elevados para `anyComponentStyle`
+  24 kB/48 kB e `initial` 1 MB/2 MB. (`ng serve` ignora budgets; o erro só
+  aparecia no build de produção.)
 
-```json
-{ "conectado": true, "mensagem": "Conexão estabelecida com o banco (Supabase).", "resultado": 1 }
-```
-
-## 4. Frontend
-
-*Em desenvolvimento — tela de configuração com botão "Testar conexão".*
-
-## Estrutura do repositório
-
-```
-trabalho_banco2/
-├─ backend/            # API Fastify
-├─ frontend/           # Angular
-├─ sql/
-│  ├─ dominio/         # loja: estrutura, carga, churn
-│  └─ plataforma/      # metadados: estrutura
-├─ docs/               # documento de visão e relatórios
-├─ .env.example
-└─ README.md
-```
+Verificado neste ambiente: backend com `typecheck` limpo e subindo em
+`:3000` respondendo os endpoints; frontend com `ng build --configuration
+production` concluído com sucesso.

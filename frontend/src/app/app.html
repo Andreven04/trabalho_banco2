@@ -1,0 +1,1024 @@
+<div class="container">
+  <h2 class="title">🛡️ Plataforma de Gerenciamento de Backup & Manutenção</h2>
+
+  <!-- ============================== -->
+  <!-- 1. CONEXÃO -->
+  <!-- ============================== -->
+
+  <section class="section-box">
+    <div class="section-title">1. Conexão PostgreSQL</div>
+
+    <div class="grid-3">
+      <label>
+        Host:
+        <input [(ngModel)]="configBanco.host" type="text" />
+      </label>
+
+      <label>
+        Porta:
+        <input [(ngModel)]="configBanco.porta" type="number" />
+      </label>
+
+      <label>
+        Database:
+        <input [(ngModel)]="configBanco.database" type="text" />
+      </label>
+    </div>
+
+    <div class="grid-2">
+      <label>
+        Usuário:
+        <input [(ngModel)]="configBanco.usuario" type="text" />
+      </label>
+
+      <label>
+        Senha:
+        <input [(ngModel)]="configBanco.senha" type="password" />
+      </label>
+    </div>
+
+    <div class="grid-2">
+      <label>
+        Schema(s) (separar por vírgula):
+        <input [(ngModel)]="configBanco.schema" type="text" placeholder="loja,plataforma" />
+      </label>
+
+      <label class="checkbox-label">
+        <input [(ngModel)]="configBanco.ssl" type="checkbox" />
+        Usar SSL (obrigatório no Supabase)
+      </label>
+    </div>
+
+    <div class="actions-row">
+      <button (click)="testarConexao()" [disabled]="carregando" class="btn-primary">
+        Testar Conexão
+      </button>
+
+      @if (statusConexao) {
+        <span [ngClass]="conectado ? 'status-connected' : 'status-error'">
+          {{ statusConexao }}
+        </span>
+      }
+    </div>
+  </section>
+
+  <!-- ============================== -->
+  <!-- 2. CHURN -->
+  <!-- ============================== -->
+
+  <section class="section-box bg-light">
+    <div class="section-title">2. Teste de Carga (Churn)</div>
+
+    <p class="section-description">
+      Simula o uso real do sistema executando DELETEs e UPDATEs para gerar tuplas mortas na base.
+    </p>
+
+    <button (click)="simularChurn()" [disabled]="!conectado || carregando" class="btn-warning">
+      ⚡ Executar Churn de Dados
+    </button>
+
+    @if (mensagemChurn) {
+      <p class="msg-churn">
+        {{ mensagemChurn }}
+      </p>
+    }
+  </section>
+
+  <!-- ============================== -->
+  <!-- 3. GERAÇÃO DE DADOS -->
+  <!-- ============================== -->
+
+  <section class="section-box data-generator-box">
+    <div class="section-title">3. Geração de Dados</div>
+
+    <p class="section-description">
+      Adicione novos registros ao banco de dados para realizar testes de carga e manutenção.
+    </p>
+
+    <div class="grid-2">
+      <label>
+        Tipo de dado:
+
+        <select [(ngModel)]="tipoDado">
+          <option value="produto">Produtos</option>
+
+          <option value="cliente">Clientes</option>
+
+          <option value="pedido">Pedidos</option>
+
+          <option value="pedido_item">Itens de pedido</option>
+
+          <option value="estoque_movimento">Movimentações de estoque</option>
+        </select>
+      </label>
+
+      <label>
+        Quantidade:
+
+        <input [(ngModel)]="quantidadeDados" type="number" min="1" placeholder="Ex.: 100" />
+      </label>
+    </div>
+
+    <button (click)="gerarDados()" [disabled]="!conectado || carregandoDados" class="btn-primary">
+      {{ carregandoDados ? 'Adicionando...' : '➕ Adicionar Dados' }}
+    </button>
+
+    @if (mensagemDados) {
+      <p class="msg-data">
+        {{ mensagemDados }}
+      </p>
+    }
+  </section>
+
+  <!-- ============================== -->
+  <!-- 4. REGRAS DE MANUTENÇÃO -->
+  <!-- ============================== -->
+
+  <section class="section-box">
+    <div class="section-title">4. Regras de Manutenção & Destino</div>
+
+    <div class="grid-2">
+      <label>
+        Diretório Destino:
+
+        <input [(ngModel)]="caminhoDestino" type="text" />
+      </label>
+
+      <label>
+        Retenção (Qtd backups):
+
+        <input [(ngModel)]="quantidadeManter" type="number" />
+      </label>
+    </div>
+
+    <div class="form-group">
+      <label>
+        Diretório de Cópia Secundária (Opcional):
+
+        <input [(ngModel)]="caminhoCopia" type="text" placeholder="./backups/copia_seguranca" />
+      </label>
+    </div>
+
+    <div class="checkbox-panel">
+      <label class="clickable">
+        <input type="checkbox" [(ngModel)]="escolhaExplicita" />
+
+        <strong> Forçar Manutenção Explícita </strong>
+
+        (Sobrepõe a regra automática por dias)
+      </label>
+
+      @if (escolhaExplicita) {
+        <div class="maintenance-options checkbox-indent">
+          <label class="clickable">
+            <input
+              type="radio"
+              name="tipoManutencao"
+              [checked]="tipoManutencao === 'vacuum'"
+              (change)="selecionarManutencao('vacuum')"
+            />
+
+            Executar
+            <code>VACUUM</code>
+
+            (Manutenção simples)
+          </label>
+
+          <label class="clickable">
+            <input
+              type="radio"
+              name="tipoManutencao"
+              [checked]="tipoManutencao === 'full'"
+              (change)="selecionarManutencao('full')"
+            />
+
+            Executar
+            <code>VACUUM FULL ANALYZE</code>
+
+            (Manutenção completa com reorganização de disco)
+          </label>
+        </div>
+      }
+    </div>
+  </section>
+
+  <!-- ============================== -->
+  <!-- 5. OPÇÕES AVANÇADAS -->
+  <!-- ============================== -->
+
+  <section class="section-box bg-gray">
+    <div class="section-title">5. Opções Avançadas (Opcionais)</div>
+
+    <div class="grid-options">
+      <div class="border-right">
+        <label class="clickable bold">
+          <input type="checkbox" [(ngModel)]="criptografar" />
+
+          🔒 Criptografar Backup (AES-256)
+        </label>
+
+        @if (criptografar) {
+          <div class="form-group">
+            <div class="sub-group">
+              <label class="text-small">
+                Chave de Criptografia:
+
+                <input
+                  [(ngModel)]="chaveCriptografia"
+                  type="password"
+                  placeholder="Chave secreta"
+                />
+              </label>
+            </div>
+          </div>
+        }
+      </div>
+
+      <div>
+        <label class="clickable bold">
+          <input type="checkbox" [(ngModel)]="compactar" />
+
+          📦 Compactar Backup (ZIP)
+        </label>
+
+        @if (compactar) {
+          <div class="form-group">
+            <div class="sub-group">
+              <label class="text-small">
+                Senha do Arquivo ZIP (Opcional):
+
+                <input [(ngModel)]="senhaZip" type="password" placeholder="Senha do arquivo" />
+              </label>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== -->
+  <!-- 6. DESCRIPTOGRAFAR BACKUP -->
+  <!-- ============================== -->
+
+  <section class="section-box decrypt-box">
+    <div class="section-title">6. Abrir Backup Criptografado</div>
+
+    <p class="section-description">
+      Use esta opção para recuperar o arquivo SQL original de um backup criptografado com AES-256.
+    </p>
+
+    <div class="form-group">
+      <label>
+        Caminho do arquivo .sql.enc:
+
+        <input
+          [(ngModel)]="arquivoCriptografado"
+          type="text"
+          placeholder="Ex.: backups\backup_trabalho_banco2.sql.enc"
+        />
+      </label>
+    </div>
+
+    <div class="form-group">
+      <label>
+        Chave de Criptografia:
+
+        <input
+          [(ngModel)]="chaveDescriptografia"
+          type="password"
+          placeholder="Digite a mesma chave usada no backup"
+        />
+      </label>
+    </div>
+
+    <button (click)="descriptografarBackup()" [disabled]="carregando" class="btn-secondary">
+      🔓 Descriptografar Backup
+    </button>
+
+    @if (resultadoDescriptografia) {
+      <div
+        class="decrypt-result"
+        [ngClass]="resultadoDescriptografia.sucesso ? 'decrypt-success' : 'decrypt-error'"
+      >
+        <h3>
+          {{
+            resultadoDescriptografia.sucesso
+              ? '✅ Descriptografia concluída'
+              : '❌ Erro na descriptografia'
+          }}
+        </h3>
+
+        <p>
+          {{ resultadoDescriptografia.mensagem }}
+        </p>
+
+        @if (resultadoDescriptografia.arquivo) {
+          <div class="file-result">
+            <strong> Arquivo recuperado: </strong>
+
+            <span>
+              {{ resultadoDescriptografia.arquivo.caminho }}
+            </span>
+          </div>
+        }
+
+        @if (resultadoDescriptografia.erro) {
+          <pre
+            >{{ resultadoDescriptografia.erro }}
+          </pre>
+        }
+      </div>
+    }
+  </section>
+
+  <!-- ============================== -->
+  <!-- 7. VERIFICAÇÃO DE INTEGRIDADE -->
+  <!-- ============================== -->
+
+  <section class="section-box integrity-box">
+    <div class="section-title">7. Verificação de Integridade do Backup</div>
+
+    <p class="section-description">
+      Verifique se um arquivo de backup permanece íntegro utilizando o checksum SHA-256 armazenado
+      no banco de dados.
+    </p>
+
+    <div class="form-group">
+      <label>
+        ID do Backup:
+
+        <input [(ngModel)]="backupIdIntegridade" type="number" min="1" placeholder="Ex.: 8" />
+      </label>
+    </div>
+
+    <button
+      (click)="verificarIntegridade()"
+      [disabled]="!conectado || verificandoIntegridade"
+      class="btn-secondary"
+    >
+      {{ verificandoIntegridade ? 'Verificando...' : 'Verificar Integridade' }}
+    </button>
+
+    @if (resultadoIntegridade) {
+      <div
+        class="integrity-result"
+        [ngClass]="
+          resultadoIntegridade.integro === true
+            ? 'integrity-success'
+            : resultadoIntegridade.integro === false
+              ? 'integrity-error'
+              : 'integrity-warning'
+        "
+      >
+        @if (resultadoIntegridade.integro === true) {
+          <h3>Backup íntegro</h3>
+        } @else if (resultadoIntegridade.integro === false) {
+          <h3>Backup alterado ou corrompido</h3>
+        } @else {
+          <h3>Não foi possível verificar</h3>
+        }
+
+        <p>
+          {{ resultadoIntegridade.mensagem }}
+        </p>
+
+        @if (resultadoIntegridade.backupId) {
+          <p>
+            <strong>ID do Backup:</strong>
+            {{ resultadoIntegridade.backupId }}
+          </p>
+        }
+
+        @if (resultadoIntegridade.checksumRegistrado) {
+          <div class="checksum-info">
+            <strong>Checksum SHA-256 registrado:</strong>
+
+            <code>
+              {{ resultadoIntegridade.checksumRegistrado }}
+            </code>
+          </div>
+        }
+
+        @if (resultadoIntegridade.checksumAtual) {
+          <div class="checksum-info">
+            <strong>Checksum SHA-256 atual:</strong>
+
+            <code>
+              {{ resultadoIntegridade.checksumAtual }}
+            </code>
+          </div>
+        }
+      </div>
+    }
+  </section>
+
+  <!-- ============================== -->
+  <!-- 8. RESTAURAÇÃO DE BACKUP -->
+  <!-- ============================== -->
+
+  <section class="section-box restore-box">
+    <div class="section-title">8. Restauração de Backup</div>
+
+    <p class="section-description">
+      Restaure um backup SQL em um novo banco de dados. Antes da restauração, o sistema verifica
+      automaticamente a integridade SHA-256 do arquivo.
+    </p>
+
+    <div class="grid-2">
+      <label>
+        ID do Backup:
+
+        <input [(ngModel)]="backupIdRestauracao" type="number" min="1" placeholder="Ex.: 8" />
+      </label>
+
+      <label>
+        Banco de destino:
+
+        <input
+          [(ngModel)]="bancoDestinoRestauracao"
+          type="text"
+          placeholder="Ex.: trabalho_banco2_restore"
+        />
+      </label>
+    </div>
+
+    <button
+      (click)="restaurarBackup()"
+      [disabled]="!conectado || restaurandoBackup"
+      class="btn-secondary"
+    >
+      {{ restaurandoBackup ? 'Restaurando...' : 'Restaurar Backup' }}
+    </button>
+
+    @if (resultadoRestauracao) {
+      <div
+        class="restore-result"
+        [ngClass]="resultadoRestauracao.sucesso ? 'restore-success' : 'restore-error'"
+      >
+        @if (resultadoRestauracao.sucesso) {
+          <h3>Restauração concluída</h3>
+        } @else {
+          <h3>Erro na restauração</h3>
+        }
+
+        <p>
+          {{ resultadoRestauracao.mensagem }}
+        </p>
+
+        @if (resultadoRestauracao.integridade) {
+          <div class="restore-info">
+            <strong>Verificação de integridade</strong>
+
+            <span>
+              {{
+                resultadoRestauracao.integridade.integro
+                  ? 'SHA-256 válido — backup íntegro'
+                  : 'Backup inválido'
+              }}
+            </span>
+          </div>
+        }
+
+        @if (resultadoRestauracao.restauracao) {
+          <div class="restore-grid">
+            <div>
+              <span>Banco original</span>
+              <strong>
+                {{ resultadoRestauracao.restauracao.bancoOriginal }}
+              </strong>
+            </div>
+
+            <div>
+              <span>Banco restaurado</span>
+              <strong>
+                {{ resultadoRestauracao.restauracao.bancoDestino }}
+              </strong>
+            </div>
+          </div>
+        }
+
+        @if (resultadoRestauracao.verificacaoDados?.length) {
+          <h4 class="restore-subtitle">Dados encontrados no banco restaurado</h4>
+
+          <div class="restore-data-grid">
+            @for (s of resultadoRestauracao.verificacaoDados; track s.schema) {
+              <div>
+                <span>Schema {{ s.schema }}</span>
+                <strong>
+                  {{ s.tabelas }} tabela(s) · {{ s.linhas_estimadas }} linha(s)
+                </strong>
+              </div>
+            }
+          </div>
+        }
+
+        @if (resultadoRestauracao.integridade?.checksumSHA256) {
+          <div class="checksum-info">
+            <strong> SHA-256 verificado: </strong>
+
+            <code>
+              {{ resultadoRestauracao.integridade.checksumSHA256 }}
+            </code>
+          </div>
+        }
+      </div>
+    }
+  </section>
+
+  <!-- ============================== -->
+  <!-- BOTÃO PRINCIPAL -->
+  <!-- ============================== -->
+
+  <button
+    (click)="executarBackupCompleto()"
+    [disabled]="!conectado || carregando"
+    class="btn-success"
+  >
+    {{ carregando ? 'Processando... Aguarde.' : '🚀 Iniciar Processo Completo de Backup' }}
+  </button>
+
+  <!-- ============================== -->
+  <!-- ACOMPANHAMENTO DA EXECUÇÃO -->
+  <!-- ============================== -->
+
+  @if (execucaoAtualId) {
+    <div
+      class="execution-progress-box"
+      [ngClass]="{
+        'progress-running': statusExecucaoAtual === 'EM_ANDAMENTO',
+        'progress-success': statusExecucaoAtual === 'CONCLUIDA',
+        'progress-failure': statusExecucaoAtual === 'FALHA',
+      }"
+    >
+      <div class="progress-header">
+        <div>
+          <h3>Execução #{{ execucaoAtualId }}</h3>
+
+          <p>Acompanhamento do processo em tempo real</p>
+        </div>
+
+        <span
+          class="progress-status"
+          [ngClass]="{
+            'status-badge-running': statusExecucaoAtual === 'EM_ANDAMENTO',
+            'status-badge-success': statusExecucaoAtual === 'CONCLUIDA',
+            'status-badge-failure': statusExecucaoAtual === 'FALHA',
+          }"
+        >
+          {{ statusExecucaoAtual }}
+        </span>
+      </div>
+
+      <div class="progress-current-step">
+        <span>Etapa atual</span>
+
+        <strong>
+          {{ etapaExecucaoAtual || 'Aguardando...' }}
+        </strong>
+      </div>
+
+      @if (resumoExecucaoAtual) {
+        <p class="progress-summary">
+          {{ resumoExecucaoAtual }}
+        </p>
+      }
+
+      @if (statusExecucaoAtual === 'EM_ANDAMENTO') {
+        <div class="progress-loading">
+          <span class="loading-dot"></span>
+
+          Processo sendo executado em segundo plano...
+        </div>
+      }
+
+      @if (etapasExecucaoAtual.length > 0) {
+        <div class="progress-steps">
+          <h4>Etapas da execução</h4>
+
+          @for (etapa of etapasExecucaoAtual; track etapa.id) {
+            <div
+              class="progress-step"
+              [ngClass]="{
+                'progress-step-success': etapa.status === 'CONCLUIDA',
+                'progress-step-running': etapa.status === 'EM_ANDAMENTO',
+                'progress-step-failure': etapa.status === 'FALHA',
+              }"
+            >
+              <div class="progress-step-icon">
+                @if (etapa.status === 'CONCLUIDA') {
+                  ✓
+                } @else if (etapa.status === 'FALHA') {
+                  ✕
+                } @else {
+                  •
+                }
+              </div>
+
+              <div class="progress-step-content">
+                <div class="progress-step-title">
+                  <strong> {{ etapa.ordem }}. {{ etapa.etapa }} </strong>
+
+                  <span>
+                    {{ etapa.status }}
+                  </span>
+                </div>
+
+                @if (etapa.mensagem && etapa.mensagem !== 'NENHUMA') {
+                  <p>
+                    {{ etapa.mensagem }}
+                  </p>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      @if (statusExecucaoAtual === 'CONCLUIDA') {
+        <div class="progress-final-message progress-final-success">
+          ✓ Processo concluído com sucesso.
+        </div>
+      }
+
+      @if (statusExecucaoAtual === 'FALHA') {
+        <div class="progress-final-message progress-final-failure">
+          ✕ O processo foi interrompido durante a execução.
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ============================== -->
+  <!-- RESULTADO DA FALHA -->
+  <!-- ============================== -->
+
+  @if (etapaFalha) {
+    <div class="result-card failure-card">
+      <h3 class="result-title">❌ Processo interrompido</h3>
+
+      <p>
+        <strong> Etapa que falhou: </strong>
+
+        {{ etapaFalha }}
+      </p>
+
+      <p>
+        <strong> Mensagem: </strong>
+
+        {{ mensagemFalha }}
+      </p>
+
+      <p class="failure-info">O log da falha foi preservado para diagnóstico.</p>
+    </div>
+  }
+
+  <!-- ============================== -->
+  <!-- RESULTADO -->
+  <!-- ============================== -->
+
+  @if (resultadoProcesso) {
+    <div class="result-card">
+      <h3 class="result-title">📌 Resultado da Execução:</h3>
+
+      <pre class="json-output"
+        >{{ resultadoProcesso | json }}
+      </pre>
+    </div>
+  }
+
+  <!-- ============================== -->
+  <!-- HISTÓRICO DE EXECUÇÕES -->
+  <!-- ============================== -->
+
+  <section class="section-box execution-history-box">
+    <div class="section-title">📊 Histórico de Execuções</div>
+
+    <p class="section-description">
+      Consulte todas as execuções do processo de manutenção e backup, incluindo execuções concluídas
+      e que apresentaram falha.
+    </p>
+
+    @if (historicoExecucoes.length > 0) {
+      <div class="execution-list">
+        @for (execucao of historicoExecucoes; track execucao.id) {
+          <div
+            class="execution-card"
+            [ngClass]="
+              execucao.status === 'CONCLUIDA'
+                ? 'execution-success'
+                : execucao.status === 'FALHA'
+                  ? 'execution-failure'
+                  : 'execution-running'
+            "
+          >
+            <div class="execution-header">
+              <div class="execution-main">
+                <span class="execution-id"> #{{ execucao.id }} </span>
+
+                <span
+                  class="execution-status"
+                  [ngClass]="
+                    execucao.status === 'CONCLUIDA'
+                      ? 'status-badge-success'
+                      : execucao.status === 'FALHA'
+                        ? 'status-badge-failure'
+                        : 'status-badge-running'
+                  "
+                >
+                  {{
+                    execucao.status === 'CONCLUIDA'
+                      ? '🟢 CONCLUÍDA'
+                      : execucao.status === 'FALHA'
+                        ? '🔴 FALHA'
+                        : '🟡 EM ANDAMENTO'
+                  }}
+                </span>
+              </div>
+
+              <button class="btn-details" (click)="selecionarExecucao(execucao)">
+                🔎 Ver etapas
+              </button>
+            </div>
+
+            <div class="execution-info">
+              <div class="execution-info-item">
+                <span class="info-label"> Início </span>
+
+                <strong>
+                  {{ execucao.iniciado_em | date: 'dd/MM/yyyy HH:mm:ss' }}
+                </strong>
+              </div>
+
+              <div class="execution-info-item">
+                <span class="info-label"> Finalização </span>
+
+                <strong>
+                  @if (execucao.finalizado_em) {
+                    {{ execucao.finalizado_em | date: 'dd/MM/yyyy HH:mm:ss' }}
+                  } @else {
+                    Em andamento
+                  }
+                </strong>
+              </div>
+
+              <div class="execution-info-item">
+                <span class="info-label"> Etapa atual </span>
+
+                <strong>
+                  {{ execucao.etapa_atual || '-' }}
+                </strong>
+              </div>
+
+              <div class="execution-info-item">
+                <span class="info-label"> Duração </span>
+
+                <strong>
+                  @if (execucao.duracao_ms != null) {
+                    {{ execucao.duracao_ms / 1000 | number: '1.2-2' }}
+                    s
+                  } @else {
+                    -
+                  }
+                </strong>
+              </div>
+            </div>
+
+            @if (execucao.resumo) {
+              <div class="execution-summary">
+                <span> Resumo: </span>
+
+                {{ execucao.resumo }}
+              </div>
+            }
+
+            @if (execucao.decisao_manutencao) {
+              <div class="maintenance-summary">
+                <strong> Manutenção: </strong>
+
+                {{ execucao.decisao_manutencao }}
+
+                @if (execucao.regra_aplicada) {
+                  —
+                  {{ execucao.regra_aplicada }}
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="empty-history">
+        <span class="empty-history-icon"> 📭 </span>
+
+        <strong> Nenhuma execução encontrada. </strong>
+
+        <p>Execute o processo completo para gerar o primeiro registro.</p>
+      </div>
+    }
+  </section>
+
+  <!-- ============================== -->
+  <!-- DETALHES DA EXECUÇÃO -->
+  <!-- ============================== -->
+
+  @if (execucaoSelecionada) {
+    <section class="section-box execution-details-box">
+      <div class="section-title">🔎 Detalhes da Execução #{{ execucaoSelecionada.id }}</div>
+
+      <div class="details-header">
+        <div>
+          <span class="info-label"> Status </span>
+
+          <span
+            class="execution-status"
+            [ngClass]="
+              execucaoSelecionada.status === 'CONCLUIDA'
+                ? 'status-badge-success'
+                : execucaoSelecionada.status === 'FALHA'
+                  ? 'status-badge-failure'
+                  : 'status-badge-running'
+            "
+          >
+            {{
+              execucaoSelecionada.status === 'CONCLUIDA'
+                ? '🟢 CONCLUÍDA'
+                : execucaoSelecionada.status === 'FALHA'
+                  ? '🔴 FALHA'
+                  : '🟡 EM ANDAMENTO'
+            }}
+          </span>
+        </div>
+
+        <button class="btn-close-details" (click)="fecharDetalhesExecucao()">✕ Fechar</button>
+      </div>
+
+      @if (carregandoEtapas) {
+        <div class="loading-details">⏳ Carregando etapas...</div>
+      } @else if (etapasExecucao.length > 0) {
+        <div class="steps-container">
+          @for (etapa of etapasExecucao; track etapa.id) {
+            <div
+              class="step-card"
+              [ngClass]="
+                etapa.status === 'CONCLUIDA'
+                  ? 'step-success'
+                  : etapa.status === 'FALHA'
+                    ? 'step-failure'
+                    : 'step-running'
+              "
+            >
+              <div class="step-number">
+                {{ etapa.ordem }}
+              </div>
+
+              <div class="step-content">
+                <div class="step-header">
+                  <strong>
+                    {{ etapa.etapa }}
+                  </strong>
+
+                  <span
+                    class="step-status"
+                    [ngClass]="
+                      etapa.status === 'CONCLUIDA'
+                        ? 'step-status-success'
+                        : etapa.status === 'FALHA'
+                          ? 'step-status-failure'
+                          : 'step-status-running'
+                    "
+                  >
+                    {{
+                      etapa.status === 'CONCLUIDA'
+                        ? '✓ CONCLUÍDA'
+                        : etapa.status === 'FALHA'
+                          ? '✕ FALHA'
+                          : '⏳ EM ANDAMENTO'
+                    }}
+                  </span>
+                </div>
+
+                <div class="step-times">
+                  <span>
+                    Início:
+                    {{ etapa.iniciado_em | date: 'dd/MM/yyyy HH:mm:ss' }}
+                  </span>
+
+                  <span>
+                    Fim:
+
+                    @if (etapa.finalizado_em) {
+                      {{ etapa.finalizado_em | date: 'dd/MM/yyyy HH:mm:ss' }}
+                    } @else {
+                      Em andamento
+                    }
+                  </span>
+
+                  <span>
+                    Duração:
+
+                    @if (etapa.duracao_ms != null) {
+                      {{ etapa.duracao_ms / 1000 | number: '1.2-2' }}
+                      s
+                    } @else {
+                      -
+                    }
+                  </span>
+                </div>
+
+                @if (etapa.mensagem) {
+                  <div class="step-message">
+                    {{ etapa.mensagem }}
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="empty-steps">
+          <span> 📭 </span>
+
+          <p>Nenhuma etapa registrada para esta execução.</p>
+        </div>
+      }
+    </section>
+  }
+
+  <!-- ============================== -->
+  <!-- HISTÓRICO DE MANUTENÇÕES -->
+  <!-- ============================== -->
+
+  <section class="section-box history-box">
+    <div class="section-title">📋 Histórico de Manutenções</div>
+
+    @if (historicoManutencao.length > 0) {
+      <div class="table-wrapper">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Decisão</th>
+              <th>Regra Aplicada</th>
+              <th>Origem</th>
+              <th>Início</th>
+              <th>Fim</th>
+              <th>Resultado</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            @for (item of historicoManutencao; track item.id) {
+              <tr>
+                <td>
+                  {{ item.id }}
+                </td>
+
+                <td>
+                  <span class="decision-badge">
+                    {{ item.decisao }}
+                  </span>
+                </td>
+
+                <td class="rule-cell">
+                  {{ item.regra_aplicada }}
+                </td>
+
+                <td>
+                  <span [ngClass]="item.origem === 'manual' ? 'origin-manual' : 'origin-auto'">
+                    {{ item.origem }}
+                  </span>
+                </td>
+
+                <td>
+                  {{ item.iniciado_em | date: 'dd/MM/yyyy HH:mm:ss' }}
+                </td>
+
+                <td>
+                  {{ item.finalizado_em | date: 'dd/MM/yyyy HH:mm:ss' }}
+                </td>
+
+                <td>
+                  <span
+                    [ngClass]="item.resultado === 'SUCESSO' ? 'result-success' : 'result-failure'"
+                  >
+                    {{ item.resultado }}
+                  </span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <div class="empty-history">
+        <span class="empty-history-icon"> 📭 </span>
+
+        <strong> Nenhum registro de manutenção encontrado. </strong>
+
+        <p>
+          Execute uma manutenção ou o processo completo de backup para gerar o primeiro registro.
+        </p>
+      </div>
+    }
+  </section>
+</div>

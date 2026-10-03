@@ -1,0 +1,91 @@
+/* ============================================================
+   Plataforma de Backup & Manutenção — base global e tokens
+   Visual: console de operações de banco (navy/slate), disciplinado.
+   ============================================================ */
+
+:root {
+  /* Superfícies e tinta */
+  --bg: #e9edf4;
+  --bg-grain: #eef2f8;
+  --surface: #ffffff;
+  --surface-2: #f5f7fb;
+  --ink: #15213b;
+  --ink-2: #44506a;
+  --ink-3: #74809b;
+  --line: #dce2ec;
+  --line-strong: #c6cfdd;
+
+  /* Marca (navy profundo) */
+  --brand: #1b2a4a;
+  --brand-600: #243a63;
+  --brand-700: #13203a;
+  --brand-ink-soft: #c9d4e8;
+
+  /* Console escuro (painel de destaque) */
+  --console: #101b31;
+  --console-2: #182642;
+  --console-line: #2a3b5e;
+  --console-ink: #d8e0f0;
+  --console-ink-2: #8f9fc0;
+
+  /* Semânticas */
+  --ok: #157a46;      --ok-bg: #e7f5ec;   --ok-line: #b7e0c6;
+  --err: #b42318;     --err-bg: #fcebe9;  --err-line: #f0bfb9;
+  --warn: #b25a09;    --warn-bg: #fbf1e3; --warn-line: #eecfa6;
+  --info: #1f4fd6;    --info-bg: #e9eefc; --info-line: #c4d3f6;
+
+  /* Ação principal (executar) */
+  --run: #0f7a52;     --run-600: #0c6845;
+
+  /* Tipografia */
+  --font-head: 'Space Grotesk', 'Segoe UI', sans-serif;
+  --font-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Courier New', monospace;
+
+  /* Raios e sombras */
+  --r-sm: 7px;
+  --r: 12px;
+  --r-lg: 18px;
+  --shadow-sm: 0 1px 2px rgba(18, 29, 52, .06);
+  --shadow: 0 6px 20px -8px rgba(18, 29, 52, .18), 0 1px 2px rgba(18, 29, 52, .05);
+  --shadow-console: 0 18px 40px -16px rgba(16, 27, 49, .55);
+
+  --maxw: 980px;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  background:
+    radial-gradient(1200px 600px at 50% -200px, var(--bg-grain), transparent 60%),
+    var(--bg);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-head);
+  color: var(--ink);
+  font-weight: 600;
+  margin: 0;
+}
+
+::selection { background: rgba(31, 79, 214, .16); }
+
+/* Foco visível e consistente (acessibilidade) */
+:where(button, input, select, textarea, a, [tabindex]):focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
