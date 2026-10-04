@@ -264,17 +264,17 @@
     <div class="section-title">6. Abrir Backup Criptografado</div>
 
     <p class="section-description">
-      Use esta opção para recuperar o arquivo SQL original de um backup criptografado com AES-256.
+      Use esta opção para recuperar o arquivo .backup original de um backup criptografado com AES-256.
     </p>
 
     <div class="form-group">
       <label>
-        Caminho do arquivo .sql.enc:
+        Caminho do arquivo .backup.enc:
 
         <input
           [(ngModel)]="arquivoCriptografado"
           type="text"
-          placeholder="Ex.: backups\backup_trabalho_banco2.sql.enc"
+          placeholder="Ex.: backups\backup_valim_matheus.backup.enc"
         />
       </label>
     </div>
@@ -420,8 +420,8 @@
     <div class="section-title">8. Restauração de Backup</div>
 
     <p class="section-description">
-      Restaure um backup SQL em um novo banco de dados. Antes da restauração, o sistema verifica
-      automaticamente a integridade SHA-256 do arquivo.
+      Restaure um backup (.backup) em um novo banco de dados. Antes da restauração, o sistema
+      verifica automaticamente a integridade SHA-256 do arquivo.
     </p>
 
     <div class="grid-2">

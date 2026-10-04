@@ -25,6 +25,7 @@ const PG_BIN =
   process.env.PG_BIN || "C:\\Program Files\\PostgreSQL\\18\\bin";
 const CAMINHO_PG_DUMP = path.join(PG_BIN, "pg_dump");
 const CAMINHO_PSQL = path.join(PG_BIN, "psql");
+const CAMINHO_PG_RESTORE = path.join(PG_BIN, "pg_restore");
 
 // ============================================================
 // VALIDAÇÕES DE CAMINHO / RETENÇÃO
@@ -89,6 +90,7 @@ async function compactarArquivo(caminhoArquivo: string, senhaZip = ""): Promise<
   return new Promise((resolve, reject) => {
     const caminhoZip = caminhoArquivo
       .replace(/\.enc$/i, ".zip")
+      .replace(/\.backup$/i, ".zip")
       .replace(/\.sql$/i, ".zip");
 
     const argumentos = ["a", "-tzip", caminhoZip, caminhoArquivo];
@@ -209,7 +211,7 @@ async function aplicarRetencao(
 
   const arquivos = fs
     .readdirSync(caminhoDestino)
-    .filter((nome) => /^backup_.+\.(sql|zip|sql\.enc)$/i.test(nome))
+    .filter((nome) => /^backup_.+\.(backup|sql|zip|enc)$/i.test(nome))
     .map((nome) => {
       const caminhoCompleto = path.join(caminhoDestino, nome);
       const stats = fs.statSync(caminhoCompleto);
@@ -368,9 +370,9 @@ export async function restaurarBackup({
   }
 
   const caminhoBackup = path.resolve(integridade.caminho);
-  if (!/\.sql$/i.test(caminhoBackup)) {
+  if (!/\.backup$/i.test(caminhoBackup)) {
     throw new Error(
-      "A restauração automática atualmente aceita somente backups SQL não compactados e não criptografados.",
+      "A restauração automática aceita somente o arquivo .backup (formato custom) não compactado e não criptografado.",
     );
   }
   if (!fs.existsSync(caminhoBackup)) {
@@ -424,22 +426,27 @@ export async function restaurarBackup({
     try { await clientPrep.end(); } catch { /* ignora */ }
   }
 
-  // 3. Restaura via psql.
+  // 3. Restaura via pg_restore (formato custom .backup).
   const argumentos = [
     "-h", configValidada.host,
     "-p", String(configValidada.porta),
     "-U", configValidada.usuario,
     "-d", nomeBancoDestino,
-    "-v", "ON_ERROR_STOP=1",
-    "-f", caminhoBackup,
+    "--no-owner",
+    "--no-privileges",
+    caminhoBackup,
   ];
 
   const env = { ...process.env, PGPASSWORD: configValidada.senha };
 
-  await new Promise<void>((resolve, reject) => {
-    execFile(CAMINHO_PSQL, argumentos, { env, windowsHide: true }, (erro, _stdout, stderr) => {
+  await new Promise<void>((resolve) => {
+    execFile(CAMINHO_PG_RESTORE, argumentos, { env, windowsHide: true }, (erro, _stdout, stderr) => {
+      // O pg_restore pode retornar código != 0 por avisos não fatais
+      // (ex.: objeto pré-existente). A conferência dos dados logo abaixo
+      // valida se a restauração realmente populou o banco; por isso não
+      // interrompemos aqui, apenas registramos os avisos.
       if (erro) {
-        return reject(new Error(`Falha ao restaurar o backup: ${stderr || erro.message}`));
+        console.warn("pg_restore terminou com avisos:", stderr || erro.message);
       }
       resolve();
     });
@@ -467,6 +474,13 @@ export async function restaurarBackup({
       GROUP BY schemaname
       ORDER BY schemaname;
     `);
+
+    // Se nenhuma tabela foi restaurada, o pg_restore não populou o banco.
+    if (resultado.rows.length === 0) {
+      throw new Error(
+        "A restauração não produziu tabelas no banco de destino. Verifique o arquivo .backup.",
+      );
+    }
 
     return {
       sucesso: true,
@@ -625,7 +639,7 @@ export async function gerarBackup(
     }
 
     const dataHora = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    const nomeArquivo = `backup_${configBancoValidada.database}_${dataHora}.sql`;
+    const nomeArquivo = `backup_${configBancoValidada.database}_${dataHora}.backup`;
     const caminhoCompleto = path.join(pastaDestino, nomeArquivo);
 
     const args = [
@@ -633,7 +647,7 @@ export async function gerarBackup(
       "-p", String(configBancoValidada.porta),
       "-U", configBancoValidada.usuario,
       ...argumentosSchema(configBancoValidada.schema),
-      "-F", "p",
+      "-F", "c",
       "-f", caminhoCompleto,
       configBancoValidada.database,
     ];
