@@ -642,11 +642,14 @@ export async function gerarBackup(
     const nomeArquivo = `backup_${configBancoValidada.database}_${dataHora}.backup`;
     const caminhoCompleto = path.join(pastaDestino, nomeArquivo);
 
+    // Backup do BANCO INTEIRO (todos os schemas do usuário). Não restringe
+    // por schema: um banco real tem a massa espalhada em vários schemas, e
+    // um backup precisa ser completo. (O schema informado na conexão serve
+    // apenas para o search_path dos metadados e para a estatística.)
     const args = [
       "-h", configBancoValidada.host,
       "-p", String(configBancoValidada.porta),
       "-U", configBancoValidada.usuario,
-      ...argumentosSchema(configBancoValidada.schema),
       "-F", "c",
       "-f", caminhoCompleto,
       configBancoValidada.database,
